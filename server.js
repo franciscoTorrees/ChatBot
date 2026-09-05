@@ -58,7 +58,7 @@ app.post('/api/chat', async (req, res) => {
 
     // Realizar la petición a Gemini usando el System Instruction
     const response = await ai.models.generateContent({
-     model: 'gemini-3.6-flash',
+     model: 'gemini-3.5-flash-lite',
       contents: contents,
       config: {
         systemInstruction: SYSTEM_PROMPT,
