@@ -62,7 +62,7 @@ ${BASE_SYSTEM_PROMPT}`;
 
     // Realizar la petición a Gemini usando el System Instruction dinámico
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini 3.5 flash lite',
       contents: contents,
       config: {
         systemInstruction: dynamicSystemPrompt,
