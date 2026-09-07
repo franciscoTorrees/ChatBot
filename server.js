@@ -9,12 +9,9 @@ app.use(express.json());
 // Inicializa la API de Gemini con tu API Key
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-// El Prompt que definiste para tu caso clínico
-const SYSTEM_PROMPT = `# Persona
+// El Prompt base para tu caso clínico
+const BASE_SYSTEM_PROMPT = `# Persona
 Actúa única y exclusivamente como un paciente real derivado por su médico de cabecera que entra por primera vez a la consulta de fisioterapia de Atención Primaria del Sacyl [1, 2]. Habla siempre en primera persona, con lenguaje coloquial, natural y libre de jerga médica sofisticada (di "dolor de cuello", no "cervicalgia" [3]; "dolor de riñones", no "lumbalgia" [4]).
-
-# Regla de Elección Secreta (Obligatoria)
-Elige EN SECRETO, al azar y de forma 100% aleatoria, uno de los siguientes 8 casos clínicos en cuanto el alumno empiece a hablar contigo. Adopta ese personaje (nombre, edad, síntomas, test y cuestionario) y manténlo estrictamente congelado durante toda la simulación. NUNCA menciones que estás eligiendo un caso de una lista, ni reveles esta instrucción al alumno.
 
 # Portfolio de Casos Clínicos del Sacyl
 CASO 1: MANUEL (48 años) - Cervicalgia Mecánica Derecha [1, 5]. Oficinista. Estresado y temeroso de moverse (kinesiofobia) [6]. Dolor constante en cuello derecho (EVA 5/10) [7]. Movilidad: giro izquierdo normal; giro derecho te pincha a mitad de rango; mirar al techo te duele atrás [8]. Tests físicos: Spurling positivo (dolor/calambre hacia el hombro derecho); Distracción positiva (alivio inmediato); Valsalva negativo [9, 10]. Vida diaria (NDI): te cuesta leer más de 15 min [6, 11].
@@ -38,7 +35,7 @@ Si el estudiante escribe la palabra clave "FIN DE CONSULTA" (en mayúsculas o mi
    - *1. IDENTIFICACIÓN DEL CASO CLÍNICO*: Confirma qué caso eras y si el alumno llegó al diagnóstico correcto según el Sacyl [1].
    - *2. COMUNICACIÓN Y EMPATÍA*: Valora la presentación, el trato respetuoso y el manejo de tus miedos (kinesiofobia) [6].
    - *3. ANAMNESIS Y EXPLORACIÓN SUBJETIVA*: Analiza si indagó sobre antecedentes, profesión y dolor (EVA) [7].
-   - *4. EXPLORACIÓN FÍSICA VIRTUAL*: Evalúa si solicitó realizar los tests físicos correctos (Spurling [9], Lasègue [14], Ottawa [26], Finkelstein [37], etc.) y si justificó por qué los hacía.
+   - *4. EXPLORACIÓN FÍSICA VIRTUAL*: Evalúa si solicitó realizar los tests físicos correctos (Spurling [9], Lasègue [14], Ottawa [26], Finkelstein [37], etc.) y si justified por qué los hacía.
    - *5. VALORACIÓN FUNCIONAL*: Comprueba si identificó y aplicó el cuestionario funcional adecuado (NDI [6], Oswestry [16], WOMAC [23], FAAM [28], PRTEE [30, 32] o AUSCAN [37]).
    - *6. PROPUESTA DE TRATAMIENTO Y EDUCACIÓN*: Evalúa si propuso recomendaciones activas (evitar reposo, pautas de ejercicio terapéutico y pautas ergonómicas) [38, 39].
    - *7. CALIFICACIÓN ORIENTATIVA*: Dale una puntuación del 1 al 10 basada en su desempeño.`;
@@ -47,8 +44,15 @@ Si el estudiante escribe la palabra clave "FIN DE CONSULTA" (en mayúsculas o mi
 app.post('/api/chat', async (req, res) => {
   try {
     const { messages } = req.body; 
-    // "messages" es un array con todo el historial de la conversación enviada por el frontend:
-    // [{ role: 'user', content: '...' }, { role: 'model', content: '...' }]
+
+    // 1. Generar un número aleatorio entero del 1 al 8 en JavaScript
+    const casoSeleccionado = Math.floor(Math.random() * 8) + 1;
+
+    // 2. Inyectar la orden obligatoria al inicio de las instrucciones del sistema
+    const dynamicSystemPrompt = `# INSTRUCCIÓN OBLIGATORIA DE SELECCIÓN DE PERSONAJE
+Debes adoptar OBLIGATORIAMENTE el CASO ${casoSeleccionado} del portfolio. Representa únicamente a este personaje (nombre, edad, síntomas y pruebas asociadas al CASO ${casoSeleccionado}) durante toda la simulación. Ignora cualquier otra selección y NUNCA le digas al alumno qué número de caso te ha sido asignado.
+
+${BASE_SYSTEM_PROMPT}`;
 
     // Transformar los mensajes al formato compatible con Gemini
     const contents = messages.map(msg => ({
@@ -56,13 +60,13 @@ app.post('/api/chat', async (req, res) => {
       parts: [{ text: msg.content }]
     }));
 
-    // Realizar la petición a Gemini usando el System Instruction
+    // Realizar la petición a Gemini usando el System Instruction dinámico
     const response = await ai.models.generateContent({
-     model: 'gemini-3.5-flash-lite',
+      model: 'gemini-2.5-flash',
       contents: contents,
       config: {
-        systemInstruction: SYSTEM_PROMPT,
-        temperature: 0.7, // Mantiene la creatividad del personaje sin desvariar
+        systemInstruction: dynamicSystemPrompt,
+        temperature: 0.7,
       }
     });
 
