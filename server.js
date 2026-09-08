@@ -94,19 +94,20 @@ Redacta el informe de evaluación con la siguiente estructura limpia (sin usar c
 2. SEGURIDAD Y BANDERAS ROJAS: Analiza críticamente si el alumno hizo el descarte obligatorio de patología grave antes de proponer tratamiento.
 3. COMUNICACIÓN Y EMPATÍA: Analiza si el trato fue humano, si se presentó al inicio y cómo gestionó tu perfil de personalidad, miedos y kinesiofobia.
 4. ANAMNESIS Y EXPLORACIÓN SUBJETIVA: Detalla críticamente si indagó sobre el inicio de los síntomas y la profesión. Valora si preguntó por la intensidad del dolor en escala numérica (0-10); si no lo hizo con número, indícalo aquí como un margen de mejora para su futuro profesional, pero sin suspenderle por ello.
-5. EXPLORACIÓN FÍSICA Y FUNCIONAL VIRTUAL: Evalúa si solicitó y justificó los tests diagnósticos correctos (ej: Spurling, Lasègue, etc.) y si aplicó el cuestionario funcional específico para la región afectada.
+5. EXPLORACIÓN FÍSICA Y FUNCIONAL VIRTUAL: Evalúa si solicitó y justified los tests diagnósticos correctos (ej: Spurling, Lasègue, etc.) y si aplicó el cuestionario funcional específico para la región afectada.
 6. PROPUESTA DE TRATAMIENTO Y EDUCACIÓN: Analiza si el alumno empoderó al paciente mediante movimiento activo, pautas ergonómicas y automanejo, o si abusó de terapias pasivas.
 7. CALIFICACIÓN FINAL: Otorga una nota numérica del 1.0 al 10.0 que refleje estrictamente su desempeño según la rúbrica equilibrada anterior. Justifica la nota detallando el mayor acierto y el mayor fallo de su intervención.`;
 
 // Endpoint de Chat
 app.post('/api/chat', async (req, res) => {
   try {
-    const { messages } = req.body; 
+    // 1. Recibimos también el caseId que el frontend ha seleccionado
+    const { messages, caseId } = req.body; 
 
-    // 1. Generar un número aleatorio entero del 1 al 8 en JavaScript
-    const casoSeleccionado = Math.floor(Math.random() * 8) + 1;
+    // 2. Si no viene caseId o es inválido, asignamos el 1 por defecto
+    const casoSeleccionado = (caseId && caseId >= 1 && caseId <= 8) ? caseId : 1;
 
-    // 2. Inyectar la orden obligatoria al inicio de las instrucciones del sistema
+    // 3. Inyectar la orden obligatoria al inicio de las instrucciones del sistema
     const dynamicSystemPrompt = `# INSTRUCCIÓN OBLIGATORIA DE SELECCIÓN DE PERSONAJE
 Debes adoptar OBLIGATORIAMENTE el CASO ${casoSeleccionado} del portfolio. Representa únicamente a este personaje (nombre, edad, síntomas y pruebas asociadas al CASO ${casoSeleccionado}) durante toda la simulación. Ignora cualquier otra selección y NUNCA le digas al alumno qué número de caso te ha sido asignado.
 
@@ -118,9 +119,9 @@ ${BASE_SYSTEM_PROMPT}`;
       parts: [{ text: msg.content }]
     }));
 
-    // Realizar la petición a Gemini usando el System Instruction dinámico
+    // Realizar la petición a Gemini respetando tu modelo intacto: gemini-3.5-flash-lite
     const response = await ai.models.generateContent({
-       model: 'gemini-3.5-flash-lite',
+      model: 'gemini-3.5-flash-lite',
       contents: contents,
       config: {
         systemInstruction: dynamicSystemPrompt,
