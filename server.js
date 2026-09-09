@@ -9,21 +9,16 @@ app.use(express.json());
 // Inicializa la API de Gemini con tu API Key
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-// Usamos una clave de API dedicada para Google Cloud TTS o la misma clave de Gemini/Google Cloud
-const GOOGLE_TTS_API_KEY = process.env.GOOGLE_TTS_API_KEY || process.env.GEMINI_API_KEY;
-
 /* 
   ====================================================================================
   ★ SECCIÓN EDITABLE POR JAVIER EN GITHUB ★
-  Aquí controlas todo. Puedes añadir casos, quitar casos, cambiar nombres, fotos o géneros.
-  El sistema calculará el total de casos activos y sincronizará la web de forma automática.
   ====================================================================================
 */
 const PATIENTS_CONFIG = {
   1: {
     name: "Manuel Martínez",
     gender: "male",
-    avatar: "https://randomuser.me/api/portraits/men/46.jpg", // Retrato curado: hombre de 48 años
+    avatar: "https://randomuser.me/api/portraits/men/46.jpg",
     prompt: `CASO 1: MANUEL (48 años) - Cervicalgia Mecánica Derecha (Déficit de movilidad)
 - Perfil de habla y personalidad: Seco, asustado y de poquísimas palabras. Te da miedo mover el cuello. Al principio respondes con monosílabos o frases de una sola línea porque estás de mal humor debido a la rigidez. Si el alumno es muy empático y te trata con calma, te vas abriendo un poco más.
 - Datos clínicos: Administrativo. Estresado. Dolor sordo y constante en el lado derecho del cuello (Dolor EVA: 5 de 10). Empeora al pasar más de 1 hora sentado frente al ordenador. La movilidad activa está limitada: el giro al lado izquierdo es normal, pero al girar a la derecha notas un pinchazo agudo a mitad de rango. Mirar al techo te molesta mucho atrás en la nuca. El dolor no pasa de la zona del hombro (no se irradia por el brazo).
@@ -34,7 +29,7 @@ const PATIENTS_CONFIG = {
   2: {
     name: "Laura Belmonte",
     gender: "female",
-    avatar: "https://randomuser.me/api/portraits/women/32.jpg", // Retrato curado: mujer de 34 años
+    avatar: "https://randomuser.me/api/portraits/women/32.jpg",
     prompt: `CASO 2: LAURA (34 años) - Cefalea Cervicogénica Derecha (Dolor de cabeza de origen cervical)
 - Perfil de habla y personalidad: Agobiada, cansada y muy preocupada. Crees que tu dolor de cabeza puede deberse a algo grave en el cerebro (un tumor) y lo dejas caer con miedo en la conversación. Hablas rápido y suspiras mucho de cansancio.
 - Datos clínicos: Profesora de educación primaria. Dolor de cabeza sordo y opresivo en el lado derecho que empieza en la nuca y se extiende como un "parche" o "antifaz" sobre la sien y detrás del ojo derecho (Dolor EVA: 6 de 10). No tienes náuseas ni te molesta la luz (esto descarta migraña). El dolor empeora notablemente cuando pasas mucho tiempo corrigiendo exámenes con el cuello doblado hacia abajo.
@@ -45,7 +40,7 @@ const PATIENTS_CONFIG = {
   3: {
     name: "Javier Ortiz",
     gender: "male",
-    avatar: "https://randomuser.me/api/portraits/men/65.jpg", // Retrato curado: hombre de 55 años
+    avatar: "https://randomuser.me/api/portraits/men/65.jpg",
     prompt: `CASO 3: JAVIER (55 años) - Radiculopatía Cervical C6-C7 Derecha (Dolor irradiado)
 - Perfil de habla y personalidad: Muy frustrado y quejoso. Te molesta mucho que el brazo "te queme" constantemente. Hablas interrumpiendo con quejas de dolor lancinante ("¡Ay!", "Me da un latigazo") en cuanto el alumno te pide mover el cuello o el brazo. Eres escéptico con que la fisioterapia te pueda ayudar.
 - Datos clínicos: Mecánico de coches de profesión (trabajas constantemente con los brazos elevados y el cuello extendido bajo los vehículos). Dolor agudo, eléctrico y lancinante que se origina en la base del cuello derecho y desciende por la parte trasera del brazo hasta el dedo índice y corazón (Dolor EVA: 7 de 10). Notas hormigueo constante en esos dedos.
@@ -55,11 +50,6 @@ const PATIENTS_CONFIG = {
   }
 };
 
-/* 
-  ====================================================================================
-  PROMPT BASE DE EVALUACIÓN DEL TUTOR (UNIVERSAL)
-  ====================================================================================
-*/
 const BASE_TUTOR_PROMPT = `# CONTEXTO Y ROL PRESENCIAL
 Actúa única y exclusivamente como un paciente real derivado por su médico de cabecera que entra por primera vez a la consulta presencial de fisioterapia de Atención Primaria del Sacyl.
 
@@ -95,53 +85,43 @@ Redacta el informe de evaluación con la siguiente estructura limpia:
 5. EXPLORACIÓN FÍSICA Y FUNCIONAL VIRTUAL: Evalúa si solicitó y justificó los tests diagnósticos correspondientes y el cuestionario funcional.
 6. PROPUESTA DE TRATAMIENTO Y EDUCACIÓN: Analiza si empoderó al paciente mediante movimiento activo.
 7. CALIFICACIÓN FINAL: Otorga una nota del 1.0 al 10.0 justificando el mayor acierto y mayor fallo.`;
-// FUNCIÓN AUXILIAR DE TEXT-TO-SPEECH USANDO GEMINI (EXTRACCIÓN ROBUSTA DE AUDIO)
+
+// FUNCIÓN DE GENERACIÓN DE AUDIO SEGURO
 async function generateAudioBase64(text, gender, isTutor) {
   const cleanText = text ? text.replace(/[*#\-_`[\]()]/g, '').trim() : '';
-  if (!cleanText) {
-    throw new Error("El texto para generar audio está vacío.");
-  }
-  
-  // Selección de voz: 'Puck' (Masculina), 'Kore' (Femenina)
+  if (!cleanText) return null;
+
   const voiceName = (isTutor || gender === 'male') ? 'Puck' : 'Kore';
 
-  const audioResponse = await ai.models.generateContent({
-    model: 'gemini-3.6-flash',
-    contents: [
-      {
-        role: 'user',
-        parts: [{ text: `Lee únicamente este texto con entonación natural en español: "${cleanText}"` }]
-      }
-    ],
-    config: {
-      responseModalities: ["AUDIO"],
-      speechConfig: {
-        voiceConfig: {
-          prebuiltVoiceConfig: {
-            voiceName: voiceName
+  try {
+    const audioResponse = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: [{ role: 'user', parts: [{ text: `Lee únicamente este texto con entonación natural en español: "${cleanText}"` }] }],
+      config: {
+        responseModalities: ["AUDIO"],
+        speechConfig: {
+          voiceConfig: {
+            prebuiltVoiceConfig: { voiceName: voiceName }
           }
         }
       }
-    }
-  });
+    });
 
-  const candidate = audioResponse.candidates?.[0];
-  const parts = candidate?.content?.parts || [];
+    const candidate = audioResponse.candidates?.[0];
+    const parts = candidate?.content?.parts || [];
 
-  // Recorremos las partes devueltas por Gemini buscando la que contiene el audio
-  for (const part of parts) {
-    // Caso 1: inlineData nativo de la SDK de Gemini
-    if (part.inlineData && part.inlineData.data) {
-      return part.inlineData.data;
+    for (const part of parts) {
+      if (part.inlineData && part.inlineData.data) {
+        return part.inlineData.data;
+      }
     }
-    // Caso 2: Objeto de audio específico
-    if (part.audio && part.audio.data) {
-      return part.audio.data;
-    }
+  } catch (err) {
+    console.log("No se pudo generar audio multimodal directo. Activando fallback local en cliente.");
   }
 
-  throw new Error("No se encontró ninguna trama de audio válida en la respuesta de Gemini.");
+  return null; // Si no hay audio de la API, devuelve null y el Front-end activa la voz nativa perfecta
 }
+
 // ENDPOINT DE CHAT DINÁMICO
 app.post('/api/chat', async (req, res) => {
   try {
@@ -162,9 +142,8 @@ app.post('/api/chat', async (req, res) => {
       parts: [{ text: msg.content }]
     }));
 
-    // 1. Generar respuesta de texto con Gemini
     const response = await ai.models.generateContent({
-      model: 'gemini-3.5-flash-lite',
+      model: 'gemini-3.6-flash',
       contents: contents,
       config: {
         systemInstruction: dynamicSystemPrompt,
@@ -176,15 +155,13 @@ app.post('/api/chat', async (req, res) => {
     const lastUserMessage = messages[messages.length - 1]?.content || '';
     const isTutorMode = lastUserMessage.toUpperCase().includes("FIN DE CONSULTA");
 
-    // 2. Generar audio MP3 mediante petición HTTP directa a la API de Google Cloud TTS
     let audioBase64 = null;
     try {
       audioBase64 = await generateAudioBase64(replyText, activePatient.gender, isTutorMode);
-    } catch (ttsError) {
-      console.error('Error generando audio con Google Cloud TTS:', ttsError.message);
+    } catch (e) {
+      console.log("Error silencioso en audio base64:", e.message);
     }
 
-    // 3. Enviar respuesta final
     res.json({
       reply: replyText,
       caseId: selectedCaseId,
