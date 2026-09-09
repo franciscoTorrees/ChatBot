@@ -95,9 +95,8 @@ Redacta el informe de evaluación con la siguiente estructura limpia:
 5. EXPLORACIÓN FÍSICA Y FUNCIONAL VIRTUAL: Evalúa si solicitó y justificó los tests diagnósticos correspondientes y el cuestionario funcional.
 6. PROPUESTA DE TRATAMIENTO Y EDUCACIÓN: Analiza si empoderó al paciente mediante movimiento activo.
 7. CALIFICACIÓN FINAL: Otorga una nota del 1.0 al 10.0 justificando el mayor acierto y mayor fallo.`;
-// FUNCIÓN AUXILIAR DE TEXT-TO-SPEECH USANDO GEMINI (ESTRUCTURA DE CONTENTS CORREGIDA)
+// FUNCIÓN AUXILIAR DE TEXT-TO-SPEECH USANDO GEMINI (EXTRACCIÓN ROBUSTA DE AUDIO)
 async function generateAudioBase64(text, gender, isTutor) {
-  // 1. Limpieza y validación de texto
   const cleanText = text ? text.replace(/[*#\-_`[\]()]/g, '').trim() : '';
   if (!cleanText) {
     throw new Error("El texto para generar audio está vacío.");
@@ -106,7 +105,6 @@ async function generateAudioBase64(text, gender, isTutor) {
   // Selección de voz: 'Puck' (Masculina), 'Kore' (Femenina)
   const voiceName = (isTutor || gender === 'male') ? 'Puck' : 'Kore';
 
-  // 2. Estructura explícita de contents
   const audioResponse = await ai.models.generateContent({
     model: 'gemini-3.6-flash',
     contents: [
@@ -128,13 +126,21 @@ async function generateAudioBase64(text, gender, isTutor) {
   });
 
   const candidate = audioResponse.candidates?.[0];
-  const part = candidate?.content?.parts?.[0];
+  const parts = candidate?.content?.parts || [];
 
-  if (part && part.inlineData && part.inlineData.data) {
-    return part.inlineData.data;
+  // Recorremos las partes devueltas por Gemini buscando la que contiene el audio
+  for (const part of parts) {
+    // Caso 1: inlineData nativo de la SDK de Gemini
+    if (part.inlineData && part.inlineData.data) {
+      return part.inlineData.data;
+    }
+    // Caso 2: Objeto de audio específico
+    if (part.audio && part.audio.data) {
+      return part.audio.data;
+    }
   }
 
-  throw new Error("No se pudo obtener la trama de audio de la respuesta de Gemini.");
+  throw new Error("No se encontró ninguna trama de audio válida en la respuesta de Gemini.");
 }
 // ENDPOINT DE CHAT DINÁMICO
 app.post('/api/chat', async (req, res) => {
