@@ -96,7 +96,7 @@ Redacta el informe de evaluación con la siguiente estructura limpia:
 6. PROPUESTA DE TRATAMIENTO Y EDUCACIÓN: Analiza si empoderó al paciente mediante movimiento activo.
 7. CALIFICACIÓN FINAL: Otorga una nota del 1.0 al 10.0 justificando el mayor acierto y mayor fallo.`;
 
-// FUNCIÓN AUXILIAR DE TEXT-TO-SPEECH USANDO GEMINI (VOZ NATIVA CORREGIDA)
+/// FUNCIÓN AUXILIAR DE TEXT-TO-SPEECH USANDO GEMINI (VOZ NATIVA CORREGIDA)
 async function generateAudioBase64(text, gender, isTutor) {
   const cleanText = text.replace(/[*#\-_`[\]()]/g, '').trim();
   
@@ -104,10 +104,10 @@ async function generateAudioBase64(text, gender, isTutor) {
   const voiceName = (isTutor || gender === 'male') ? 'Puck' : 'Kore';
 
   const audioResponse = await ai.models.generateContent({
-    model: 'gemini-3.5-flash-lite',
+    model: 'gemini-2.5-flash', // <-- CAMBIADO: gemini-2.5-flash sí soporta salida de AUDIO
     contents: `Lee únicamente este texto con entonación natural en español: "${cleanText}"`,
     config: {
-      responseModalities: ["AUDIO"], // Solicita salida directa en formato de audio
+      responseModalities: ["AUDIO"],
       speechConfig: {
         voiceConfig: {
           prebuiltVoiceConfig: {
@@ -118,12 +118,11 @@ async function generateAudioBase64(text, gender, isTutor) {
     }
   });
 
-  // Extraemos los datos de audio en Base64 directamente de la respuesta
   const candidate = audioResponse.candidates?.[0];
   const part = candidate?.content?.parts?.[0];
 
   if (part && part.inlineData && part.inlineData.data) {
-    return part.inlineData.data; // Retorna la cadena Base64 lista para el navegador
+    return part.inlineData.data;
   }
 
   throw new Error("No se pudo obtener la trama de audio de la respuesta de Gemini.");
