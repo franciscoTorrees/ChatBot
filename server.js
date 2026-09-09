@@ -96,34 +96,32 @@ Redacta el informe de evaluación con la siguiente estructura limpia:
 6. PROPUESTA DE TRATAMIENTO Y EDUCACIÓN: Analiza si empoderó al paciente mediante movimiento activo.
 7. CALIFICACIÓN FINAL: Otorga una nota del 1.0 al 10.0 justificando el mayor acierto y mayor fallo.`;
 
-// FUNCIÓN AUXILIAR DE TEXT-TO-SPEECH VÍA HTTP REST
+// FUNCIÓN AUXILIAR DE TEXT-TO-SPEECH USANDO GEMINI (VOZ NATIVA)
 async function generateAudioBase64(text, gender, isTutor) {
   const cleanText = text.replace(/[*#\-_`[\]()]/g, '').trim();
   
-  let voiceName = 'es-ES-Standard-A'; // Voz femenina predeterminada
-  if (isTutor || gender === 'male') {
-    voiceName = 'es-ES-Standard-B'; // Voz masculina predeterminada
-  }
+  // Selección de voz nativa de Gemini:
+  // - Puck: Voz masculina
+  // - Kore: Voz femenina
+  const voiceName = (isTutor || gender === 'male') ? 'Puck' : 'Kore';
 
-  const url = `https://texttospeech.googleapis.com/v1/text:synthesize?key=${GOOGLE_TTS_API_KEY}`;
-
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      input: { text: cleanText },
-      voice: { languageCode: 'es-ES', name: voiceName },
-      audioConfig: { audioEncoding: 'MP3', speakingRate: 0.95 }
-    })
+  const audioResponse = await ai.models.generateContent({
+    model: 'gemini-2.5-flash',
+    contents: `Lee exactamente el siguiente texto con entonación natural en español, sin agregar nada más:\n"${cleanText}"`,
+    config: {
+      responseMimeType: 'audio/mp3',
+      speechConfig: {
+        voiceConfig: {
+          prebuiltVoiceConfig: {
+            voiceName: voiceName
+          }
+        }
+      }
+    }
   });
 
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(`Google TTS API Error: ${JSON.stringify(errorData)}`);
-  }
-
-  const data = await response.json();
-  return data.audioContent; // Ya viene formateado en Base64 desde la API de Google
+  const audioBuffer = await audioResponse.response.arrayBuffer();
+  return Buffer.from(audioBuffer).toString('base64');
 }
 
 // ENDPOINT DE CHAT DINÁMICO
