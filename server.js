@@ -95,7 +95,7 @@ async function generateAudioBase64(text, gender, isTutor) {
 
   try {
     const audioResponse = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.6-flash',
       contents: [{ role: 'user', parts: [{ text: `Lee únicamente este texto con entonación natural en español: "${cleanText}"` }] }],
       config: {
         responseModalities: ["AUDIO"],
@@ -143,7 +143,7 @@ app.post('/api/chat', async (req, res) => {
     }));
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3.6-flash',
+      model: 'gemini-3.5-flash-lite',
       contents: contents,
       config: {
         systemInstruction: dynamicSystemPrompt,
