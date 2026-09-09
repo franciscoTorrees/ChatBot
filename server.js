@@ -11,7 +11,6 @@ app.use(express.json());
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 // Inicializa el cliente de Google Cloud Text-to-Speech
-// (Utiliza las credenciales configuradas en las variables de entorno de Render)
 const ttsClient = new textToSpeech.TextToSpeechClient();
 
 /* 
@@ -41,7 +40,7 @@ const PATIENTS_CONFIG = {
 - Perfil de habla y personalidad: Agobiada, cansada y muy preocupada. Crees que tu dolor de cabeza puede deberse a algo grave en el cerebro (un tumor) y lo dejas caer con miedo en la conversación. Hablas rápido y suspiras mucho de cansancio.
 - Datos clínicos: Profesora de educación primaria. Dolor de cabeza sordo y opresivo en el lado derecho que empieza en la nuca y se extiende como un "parche" o "antifaz" sobre la sien y detrás del ojo derecho (Dolor EVA: 6 de 10). No tienes náuseas ni te molesta la luz (esto descarta migraña). El dolor empeora notablemente cuando pasas mucho tiempo corrigiendo exámenes con el cuello doblado hacia abajo.
 - Tests físicos: Test de flexión-rotación cervical (FRT) positivo (restricción severa de movimiento al girar la cabeza estando el cuello completamente doblado); Dolor a la presión manual sobre las vértebras cervicales superiores (C1-C2-C3) en el lado derecho.
-- Banderas Rojas: Negativas. No hay alteraciones visuales, no hay mareos repentinos (descarte de insuficiencia vertebrobasilar), ni pérdidas de equilibrio, ni dolor de cabeza repentino de intensidad explosiva.
+- Banderas Rojas: Negativas. No hay alterations visuales, no hay mareos repentinos (descarte de insuficiencia vertebrobasilar), ni pérdidas de equilibrio, ni dolor de cabeza repentino de intensidad explosiva.
 - Limitaciones en la vida diaria: Dificultad para mantener la concentración en clase y mucha tensión al final del día escolar.`
   },
   3: {
@@ -100,16 +99,11 @@ Redacta el informe de evaluación con la siguiente estructura limpia:
 
 // FUNCIÓN AUXILIAR DE TEXT-TO-SPEECH
 async function generateAudioBase64(text, gender, isTutor) {
-  // Limpiamos símbolos o formato markdown para que la locución sea limpia
   const cleanText = text.replace(/[*#\-_`[\]()]/g, '').trim();
   
-  // Selección de voz:
-  // - Hombre: es-ES-Standard-B (Voz masculina natural)
-  // - Mujer:  es-ES-Standard-A (Voz femenina natural)
-  // - Tutor:  es-ES-Standard-B
-  let voiceName = 'es-ES-Standard-A';
+  let voiceName = 'es-ES-Standard-A'; // Voz femenina predeterminada
   if (isTutor || gender === 'male') {
-    voiceName = 'es-ES-Standard-B';
+    voiceName = 'es-ES-Standard-B'; // Voz masculina predeterminada
   }
 
   const request = {
@@ -127,27 +121,21 @@ app.post('/api/chat', async (req, res) => {
   try {
     const { messages, caseId } = req.body;
     
-    // Obtener los IDs de los casos configurados actualmente en GitHub
     const activeCaseIds = Object.keys(PATIENTS_CONFIG).map(Number);
     let selectedCaseId = caseId;
 
-    // Si no se envía caseId (primer mensaje de la sesión), elegimos uno al azar de la lista activa en GitHub
     if (!selectedCaseId || !PATIENTS_CONFIG[selectedCaseId]) {
       selectedCaseId = activeCaseIds[Math.floor(Math.random() * activeCaseIds.length)];
     }
 
     const activePatient = PATIENTS_CONFIG[selectedCaseId];
-
-    // Inyectamos las instrucciones del paciente seleccionado de forma dinámica
     const dynamicSystemPrompt = `${BASE_TUTOR_PROMPT}\n\n[INSTRUCCIÓN CLÍNICA DEL CASO ACTUAL CONGELADO]:\n${activePatient.prompt}`;
 
-    // Formateamos el historial al estándar de Gemini
     const contents = messages.map(msg => ({
       role: msg.role === 'user' ? 'user' : 'model',
       parts: [{ text: msg.content }]
     }));
 
-    // 1. Gemini genera únicamente el texto (Mínimo consumo de tokens)
     const response = await ai.models.generateContent({
       model: 'gemini-3.5-flash-lite',
       contents: contents,
@@ -158,21 +146,16 @@ app.post('/api/chat', async (req, res) => {
     });
 
     const replyText = response.text;
-
-    // Detectamos si la respuesta la emite el Tutor
     const lastUserMessage = messages[messages.length - 1]?.content || '';
     const isTutorMode = lastUserMessage.toUpperCase().includes("FIN DE CONSULTA");
 
-    // 2. Generación del audio mediante Google Cloud TTS
     let audioBase64 = null;
     try {
       audioBase64 = await generateAudioBase64(replyText, activePatient.gender, isTutorMode);
     } catch (ttsError) {
       console.error('Error generando audio con Google Cloud TTS:', ttsError);
-      // Se omite el audio si falla la API de voz, permitiendo que la respuesta continúe en texto
     }
 
-    // 3. Respuesta con texto, audio MP3 en Base64 y metadatos
     res.json({
       reply: replyText,
       caseId: selectedCaseId,
