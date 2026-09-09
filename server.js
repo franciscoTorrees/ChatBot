@@ -104,8 +104,7 @@ async function generateAudioBase64(text, gender, isTutor) {
   const voiceName = (isTutor || gender === 'male') ? 'Puck' : 'Kore';
 
   const audioResponse = await ai.models.generateContent({
-    model: 'gemini-2.5-flash', // <-- CAMBIADO: gemini-2.5-flash sí soporta salida de AUDIO
-    contents: `Lee únicamente este texto con entonación natural en español: "${cleanText}"`,
+    model: 'gemini-3.6-flash', // <-- MODELO ACTUALIZADO    contents: `Lee únicamente este texto con entonación natural en español: "${cleanText}"`,
     config: {
       responseModalities: ["AUDIO"],
       speechConfig: {
