@@ -95,16 +95,26 @@ Redacta el informe de evaluación con la siguiente estructura limpia:
 5. EXPLORACIÓN FÍSICA Y FUNCIONAL VIRTUAL: Evalúa si solicitó y justificó los tests diagnósticos correspondientes y el cuestionario funcional.
 6. PROPUESTA DE TRATAMIENTO Y EDUCACIÓN: Analiza si empoderó al paciente mediante movimiento activo.
 7. CALIFICACIÓN FINAL: Otorga una nota del 1.0 al 10.0 justificando el mayor acierto y mayor fallo.`;
-
-/// FUNCIÓN AUXILIAR DE TEXT-TO-SPEECH USANDO GEMINI (VOZ NATIVA CORREGIDA)
+// FUNCIÓN AUXILIAR DE TEXT-TO-SPEECH USANDO GEMINI (ESTRUCTURA DE CONTENTS CORREGIDA)
 async function generateAudioBase64(text, gender, isTutor) {
-  const cleanText = text.replace(/[*#\-_`[\]()]/g, '').trim();
+  // 1. Limpieza y validación de texto
+  const cleanText = text ? text.replace(/[*#\-_`[\]()]/g, '').trim() : '';
+  if (!cleanText) {
+    throw new Error("El texto para generar audio está vacío.");
+  }
   
   // Selección de voz: 'Puck' (Masculina), 'Kore' (Femenina)
   const voiceName = (isTutor || gender === 'male') ? 'Puck' : 'Kore';
 
+  // 2. Estructura explícita de contents
   const audioResponse = await ai.models.generateContent({
-    model: 'gemini-3.6-flash', // <-- MODELO ACTUALIZADO    contents: `Lee únicamente este texto con entonación natural en español: "${cleanText}"`,
+    model: 'gemini-3.6-flash',
+    contents: [
+      {
+        role: 'user',
+        parts: [{ text: `Lee únicamente este texto con entonación natural en español: "${cleanText}"` }]
+      }
+    ],
     config: {
       responseModalities: ["AUDIO"],
       speechConfig: {
@@ -126,7 +136,6 @@ async function generateAudioBase64(text, gender, isTutor) {
 
   throw new Error("No se pudo obtener la trama de audio de la respuesta de Gemini.");
 }
-
 // ENDPOINT DE CHAT DINÁMICO
 app.post('/api/chat', async (req, res) => {
   try {
