@@ -1,7 +1,6 @@
 const express = require('express');
 const cors = require('cors');
 const { GoogleGenAI } = require('@google/genai');
-const textToSpeech = require('@google-cloud/text-to-speech');
 
 const app = express();
 app.use(cors());
@@ -10,8 +9,8 @@ app.use(express.json());
 // Inicializa la API de Gemini con tu API Key
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-// Inicializa el cliente de Google Cloud Text-to-Speech
-const ttsClient = new textToSpeech.TextToSpeechClient();
+// Usamos una clave de API dedicada para Google Cloud TTS o la misma clave de Gemini/Google Cloud
+const GOOGLE_TTS_API_KEY = process.env.GOOGLE_TTS_API_KEY || process.env.GEMINI_API_KEY;
 
 /* 
   ====================================================================================
@@ -40,7 +39,7 @@ const PATIENTS_CONFIG = {
 - Perfil de habla y personalidad: Agobiada, cansada y muy preocupada. Crees que tu dolor de cabeza puede deberse a algo grave en el cerebro (un tumor) y lo dejas caer con miedo en la conversación. Hablas rápido y suspiras mucho de cansancio.
 - Datos clínicos: Profesora de educación primaria. Dolor de cabeza sordo y opresivo en el lado derecho que empieza en la nuca y se extiende como un "parche" o "antifaz" sobre la sien y detrás del ojo derecho (Dolor EVA: 6 de 10). No tienes náuseas ni te molesta la luz (esto descarta migraña). El dolor empeora notablemente cuando pasas mucho tiempo corrigiendo exámenes con el cuello doblado hacia abajo.
 - Tests físicos: Test de flexión-rotación cervical (FRT) positivo (restricción severa de movimiento al girar la cabeza estando el cuello completamente doblado); Dolor a la presión manual sobre las vértebras cervicales superiores (C1-C2-C3) en el lado derecho.
-- Banderas Rojas: Negativas. No hay alterations visuales, no hay mareos repentinos (descarte de insuficiencia vertebrobasilar), ni pérdidas de equilibrio, ni dolor de cabeza repentino de intensidad explosiva.
+- Banderas Rojas: Negativas. No hay alteraciones visuales, no hay mareos repentinos (descarte de insuficiencia vertebrobasilar), ni pérdidas de equilibrio, ni dolor de cabeza repentino de intensidad explosiva.
 - Limitaciones en la vida diaria: Dificultad para mantener la concentración en clase y mucha tensión al final del día escolar.`
   },
   3: {
@@ -97,7 +96,7 @@ Redacta el informe de evaluación con la siguiente estructura limpia:
 6. PROPUESTA DE TRATAMIENTO Y EDUCACIÓN: Analiza si empoderó al paciente mediante movimiento activo.
 7. CALIFICACIÓN FINAL: Otorga una nota del 1.0 al 10.0 justificando el mayor acierto y mayor fallo.`;
 
-// FUNCIÓN AUXILIAR DE TEXT-TO-SPEECH
+// FUNCIÓN AUXILIAR DE TEXT-TO-SPEECH VÍA HTTP REST
 async function generateAudioBase64(text, gender, isTutor) {
   const cleanText = text.replace(/[*#\-_`[\]()]/g, '').trim();
   
@@ -106,14 +105,25 @@ async function generateAudioBase64(text, gender, isTutor) {
     voiceName = 'es-ES-Standard-B'; // Voz masculina predeterminada
   }
 
-  const request = {
-    input: { text: cleanText },
-    voice: { languageCode: 'es-ES', name: voiceName },
-    audioConfig: { audioEncoding: 'MP3', speakingRate: 0.95 },
-  };
+  const url = `https://texttospeech.googleapis.com/v1/text:synthesize?key=${GOOGLE_TTS_API_KEY}`;
 
-  const [response] = await ttsClient.synthesizeSpeech(request);
-  return response.audioContent.toString('base64');
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      input: { text: cleanText },
+      voice: { languageCode: 'es-ES', name: voiceName },
+      audioConfig: { audioEncoding: 'MP3', speakingRate: 0.95 }
+    })
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(`Google TTS API Error: ${JSON.stringify(errorData)}`);
+  }
+
+  const data = await response.json();
+  return data.audioContent; // Ya viene formateado en Base64 desde la API de Google
 }
 
 // ENDPOINT DE CHAT DINÁMICO
@@ -136,6 +146,7 @@ app.post('/api/chat', async (req, res) => {
       parts: [{ text: msg.content }]
     }));
 
+    // 1. Generar respuesta de texto con Gemini
     const response = await ai.models.generateContent({
       model: 'gemini-3.5-flash-lite',
       contents: contents,
@@ -149,13 +160,15 @@ app.post('/api/chat', async (req, res) => {
     const lastUserMessage = messages[messages.length - 1]?.content || '';
     const isTutorMode = lastUserMessage.toUpperCase().includes("FIN DE CONSULTA");
 
+    // 2. Generar audio MP3 mediante petición HTTP directa a la API de Google Cloud TTS
     let audioBase64 = null;
     try {
       audioBase64 = await generateAudioBase64(replyText, activePatient.gender, isTutorMode);
     } catch (ttsError) {
-      console.error('Error generando audio con Google Cloud TTS:', ttsError);
+      console.error('Error generando audio con Google Cloud TTS:', ttsError.message);
     }
 
+    // 3. Enviar respuesta final
     res.json({
       reply: replyText,
       caseId: selectedCaseId,
