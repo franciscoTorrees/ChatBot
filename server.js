@@ -28,7 +28,7 @@ const PATIENTS_CONFIG = {
 1: {
     name: "Carlos Ruiz",
     gender: "male",
-    avatar: "https://randomuser.me/api/portraits/men/44.jpg",
+    avatar: "https://randomuser.me/api/portraits/men/75.jpg",
     prompt: `
 CASO 1: CARLOS RUIZ (44 AÑOS)
 DOLOR RELACIONADO CON EL MANGUITO ROTADOR (RCRSP)
@@ -2143,7 +2143,7 @@ es la primera sesión de fisioterapia.
 3: {
     name: "Javier Martín",
     gender: "male",
-    avatar: "https://randomuser.me/api/portraits/men/52.jpg",
+    avatar: "https://randomuser.me/api/portraits/men/11.jpg",
     prompt: `
 CASO 3: JAVIER MARTÍN (42 AÑOS)
 EPICONDILALGIA LATERAL DERECHA
@@ -4064,7 +4064,7 @@ No inventar una evolución futura favorable.
 5: {
     name: "Lucas García",
     gender: "male",
-    avatar: "https://randomuser.me/api/portraits/men/21.jpg",
+    avatar: "https://randomuser.me/api/portraits/men/22.jpg",
     prompt: `
 CASO 5: LUCAS GARCÍA (23 AÑOS)
 ESGUINCE OSTEOLIGAMENTOSO DE MUÑECA
@@ -9911,7 +9911,7 @@ realizadas.
 8: {
     name: "Miguel Fernández",
     gender: "male",
-    avatar: "https://randomuser.me/api/portraits/men/52.jpg",
+    avatar: "https://randomuser.me/api/portraits/men/83.jpg",
     prompt: `
 CASO 8: MIGUEL FERNÁNDEZ (49 AÑOS)
 FASCIOPATÍA PLANTAR DERECHA (FP)
